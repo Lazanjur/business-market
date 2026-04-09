@@ -141,7 +141,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {step === 1 ? (
               <>
                 <div>
@@ -179,15 +179,15 @@ export default function RegisterPage() {
               <>
                 <div>
                   <label className="label">Business email</label>
-                  <input type="email" className="input" placeholder="name@company.com" required autoComplete="new-password" name="register-email" />
+                  <input type="email" className="input" placeholder="name@company.com" required autoComplete="email" />
                 </div>
                 <div>
                   <label className="label">Full name</label>
-                  <input type="text" className="input" placeholder="Your full name" required autoComplete="off" name="register-name" />
+                  <input type="text" className="input" placeholder="Your full name" required autoComplete="name" />
                 </div>
                 <div>
                   <label className="label">Job title</label>
-                  <input type="text" className="input" placeholder="e.g. Procurement Manager" autoComplete="off" name="register-jobtitle" />
+                  <input type="text" className="input" placeholder="e.g. Procurement Manager" />
                 </div>
                 <div>
                   <label className="label">Password</label>

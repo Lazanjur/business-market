@@ -1,0 +1,24 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to UpCloud server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 83.136.254.152
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /home/deploy/business-market
+            git pull origin main
+            cd apps/web
+            npm ci
+            npm run build
+            pm2 restart ib-web || pm2 start npm --name ib-web -- start
+            pm2 save

@@ -1,0 +1,949 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                    String                    @unique
+  passwordHash             String                    @map("password_hash")
+  firstName                String                    @map("first_name")
+  lastName                 String                    @map("last_name")
+  role                     String                    @default("entity_member")
+  verificationTier         String                    @default("basic") @map("verification_tier")
+  entityId                 String?                   @map("entity_id") @db.Uuid
+  isActive                 Boolean                   @default(true) @map("is_active")
+  createdAt                DateTime                  @default(now()) @map("created_at")
+  updatedAt                DateTime                  @updatedAt @map("updated_at")
+  entity                   Entity?                   @relation(fields: [entityId], references: [id])
+  memberships              EntityMembership[]
+  messages                 Message[]
+  participants             ConversationParticipant[]
+  locationHistory          LocationHistory[]         @relation("LocationHistoryChangedBy")
+  resolvedComplianceCases  ComplianceCase[]          @relation("ComplianceCaseResolvedBy")
+  complianceCaseEvents     ComplianceCaseEvent[]     @relation("ComplianceCaseEventActor")
+
+  @@map("users")
+}
+
+model Entity {
+  id                   String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legalName            String                     @map("legal_name")
+  slug                 String                     @unique
+  registrationNumber   String                     @map("registration_number")
+  vatNumber            String?                    @map("vat_number")
+  countryCode          String                     @map("country_code") @db.Char(2)
+  regulatoryRegime     String                     @map("regulatory_regime")
+  entityType           String                     @map("entity_type")
+  kybStatus            String                     @default("pending") @map("kyb_status")
+  kybProvider          String?                    @map("kyb_provider")
+  kybReference         String?                    @map("kyb_reference")
+  lastKybRefreshAt     DateTime?                  @map("last_kyb_refresh_at")
+  sanctionsStatus      String                     @default("not_started") @map("sanctions_status")
+  riskBand             String                     @default("medium") @map("risk_band")
+  complianceHoldReason String?                    @map("compliance_hold_reason")
+  uboDeclarationStatus String                     @default("not_started") @map("ubo_declaration_status")
+  verificationTier     String                     @default("basic") @map("verification_tier")
+  trustScore           Int                        @default(50) @map("trust_score")
+  primaryCategory      String?                    @map("primary_category")
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+  users                User[]
+  profile              EntityProfile?
+  authorityProfile     EntityAuthorityProfile?
+  units                OrganizationUnit[]
+  certifications       EntityCertification[]
+  trustScoreEvents     TrustScoreEvent[]
+  memberships          EntityMembership[]
+  locations            EntityLocation[]
+  complianceCases      ComplianceCase[]
+  complianceChecks     ComplianceCheck[]
+  complianceDocuments  ComplianceDocument[]
+  beneficialOwners     BeneficialOwner[]
+  screeningMatches     ComplianceScreeningMatch[]
+  listings             Listing[]
+  catalogCollections   SupplierCatalogCollection[]
+  catalogSections      SupplierCatalogSection[]
+  storefront           EntityStorefront?
+  rfqs                 RFQ[]
+  tenders              Tender[]
+  buyerOrders          Order[]                    @relation("BuyerOrders")
+  sellerOrders         Order[]                    @relation("SellerOrders")
+  buyerConversations   Conversation[]             @relation("ConversationBuyer")
+  sellerConversations  Conversation[]             @relation("ConversationSeller")
+
+  @@index([countryCode, regulatoryRegime])
+  @@index([kybStatus, sanctionsStatus, riskBand])
+  @@map("entities")
+}
+
+model EntityLocation {
+  id                    String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId              String                         @map("entity_id") @db.Uuid
+  locationType          String                         @map("location_type")
+  label                 String?
+  addressLine1          String                         @map("address_line1")
+  addressLine2          String?                        @map("address_line2")
+  city                  String
+  region                String?
+  postalCode            String                         @map("postal_code")
+  countryCode           String                         @map("country_code") @db.Char(2)
+  latitude              Decimal?                       @db.Decimal(9, 6)
+  longitude             Decimal?                       @db.Decimal(9, 6)
+  coordinates           Unsupported("geography(Point,4326)")?
+  geocodeStatus         String                         @default("pending") @map("geocode_status")
+  geocodeProvider       String?                        @map("geocode_provider")
+  geocodeConfidence     Decimal?                       @map("geocode_confidence") @db.Decimal(3, 2)
+  cityCentroidLat       Decimal?                       @map("city_centroid_lat") @db.Decimal(9, 6)
+  cityCentroidLng       Decimal?                       @map("city_centroid_lng") @db.Decimal(9, 6)
+  lastGeocodedAt        DateTime?                      @map("last_geocoded_at")
+  deliveryRadiusKm      Int?                           @map("delivery_radius_km")
+  deliveryCountries     String[]                       @default([]) @map("delivery_countries")
+  deliveryNotes         String?                        @map("delivery_notes")
+  visibility            String                         @default("hidden")
+  visibilityUpdatedAt   DateTime?                      @map("visibility_updated_at")
+  consentRecordedAt     DateTime?                      @map("consent_recorded_at")
+  consentVersion        String?                        @map("consent_version")
+  privacyWarningAcknowledgedAt DateTime?               @map("privacy_warning_acknowledged_at")
+  addressVerified       Boolean                        @default(false) @map("address_verified")
+  verifiedAt            DateTime?                      @map("verified_at")
+  verifiedMethod        String?                        @map("verified_method")
+  isPrimary             Boolean                        @default(false) @map("is_primary")
+  isActive              Boolean                        @default(true) @map("is_active")
+  createdAt             DateTime                       @default(now()) @map("created_at")
+  updatedAt             DateTime                       @updatedAt @map("updated_at")
+  entity                Entity                         @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  verificationRequests  LocationVerificationRequest[]
+  history               LocationHistory[]
+  disclosureConsents    LocationDisclosureConsent[]
+  geocodeReviewTasks    LocationGeocodeReviewTask[]
+  coverageSnapshots     LocationCoverageSnapshot[]
+  listingDispatches     Listing[]                      @relation("ListingDispatchLocation")
+  orderDispatches       Order[]                        @relation("OrderDispatchLocation")
+
+  @@index([entityId, locationType])
+  @@index([countryCode, locationType, visibility])
+  @@map("entity_locations")
+}
+
+model LocationVerificationRequest {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId       String         @map("location_id") @db.Uuid
+  method           String
+  verificationCode String?        @map("verification_code")
+  documentUrl      String?        @map("document_url")
+  status           String         @default("pending")
+  expiresAt        DateTime?      @map("expires_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  resolvedAt       DateTime?      @map("resolved_at")
+  postalDispatches LocationPostalDispatch[]
+  location         EntityLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([locationId, status])
+  @@map("location_verification_requests")
+}
+
+model LocationHistory {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId    String         @map("location_id") @db.Uuid
+  changedBy     String?        @map("changed_by") @db.Uuid
+  fieldChanged  String         @map("field_changed")
+  oldValue      String?        @map("old_value")
+  newValue      String?        @map("new_value")
+  changeReason  String?        @map("change_reason")
+  changedAt     DateTime       @default(now()) @map("changed_at")
+  location      EntityLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  user          User?          @relation("LocationHistoryChangedBy", fields: [changedBy], references: [id])
+
+  @@index([locationId, changedAt])
+  @@map("location_history")
+}
+
+model LocationDisclosureConsent {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId       String         @map("location_id") @db.Uuid
+  capturedByUserId String?        @map("captured_by_user_id") @db.Uuid
+  visibility       String
+  legalBasis       String         @default("consent") @map("legal_basis")
+  policyVersion    String         @default("location-v4.1") @map("policy_version")
+  consentText      String?        @map("consent_text")
+  capturedAt       DateTime       @default(now()) @map("captured_at")
+  withdrawnAt      DateTime?      @map("withdrawn_at")
+  location         EntityLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([locationId, capturedAt])
+  @@map("location_disclosure_consents")
+}
+
+model LocationGeocodeReviewTask {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId        String         @map("location_id") @db.Uuid
+  verificationRequestId String?    @map("verification_request_id") @db.Uuid
+  reviewType        String         @map("review_type")
+  status            String         @default("open")
+  priority          String         @default("normal")
+  reason            String?        @map("reason")
+  proposedLatitude  Decimal?       @map("proposed_latitude") @db.Decimal(9, 6)
+  proposedLongitude Decimal?       @map("proposed_longitude") @db.Decimal(9, 6)
+  assignedToUserId  String?        @map("assigned_to_user_id") @db.Uuid
+  resolutionNotes   String?        @map("resolution_notes")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  resolvedAt        DateTime?      @map("resolved_at")
+  location          EntityLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([status, priority, createdAt])
+  @@index([locationId, status])
+  @@map("location_geocode_review_tasks")
+}
+
+model LocationCoverageSnapshot {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId    String         @map("location_id") @db.Uuid
+  coverageType  String         @default("circle") @map("coverage_type")
+  geojson       Json
+  effectiveFrom DateTime       @default(now()) @map("effective_from")
+  supersededAt  DateTime?      @map("superseded_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  location      EntityLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([locationId, effectiveFrom])
+  @@map("location_coverage_snapshots")
+}
+
+model LocationPostalDispatch {
+  id                    String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  verificationRequestId String                      @map("verification_request_id") @db.Uuid
+  provider              String                      @default("lob")
+  providerTrackingId    String?                     @map("provider_tracking_id")
+  status                String                      @default("queued")
+  requestedAt           DateTime                    @default(now()) @map("requested_at")
+  dispatchedAt          DateTime?                   @map("dispatched_at")
+  expectedDeliveryAt    DateTime?                   @map("expected_delivery_at")
+  deliveredAt           DateTime?                   @map("delivered_at")
+  verificationRequest   LocationVerificationRequest @relation(fields: [verificationRequestId], references: [id], onDelete: Cascade)
+
+  @@index([status, requestedAt])
+  @@map("location_postal_dispatches")
+}
+
+
+model EntityProfile {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId             String   @unique @map("entity_id") @db.Uuid
+  displayName          String?  @map("display_name")
+  tagline              String?
+  description          String?
+  websiteUrl           String?  @map("website_url")
+  supportEmail         String?  @map("support_email")
+  salesEmail           String?  @map("sales_email")
+  phoneNumber          String?  @map("phone_number")
+  yearFounded          Int?     @map("year_founded")
+  employeeRange        String?  @map("employee_range")
+  annualRevenueBand    String?  @map("annual_revenue_band")
+  legalForm            String?  @map("legal_form")
+  procurementReadiness String   @default("not_assessed") @map("procurement_readiness")
+  profileVisibility    String   @default("members_only") @map("profile_visibility")
+  coverageCountries    String[] @default([]) @map("coverage_countries")
+  supportedLanguages   String[] @default([]) @map("supported_languages")
+  capabilities         Json?
+  seoSummary           String?  @map("seo_summary")
+  profileStatus        String   @default("draft") @map("profile_status")
+  completenessScore    Int      @default(0) @map("completeness_score")
+  insuranceStatus      String?  @map("insurance_status")
+  insuranceExpiresAt   DateTime? @map("insurance_expires_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  entity               Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@map("entity_profiles")
+}
+
+
+
+
+model EntityAuthorityProfile {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId                 String   @unique @map("entity_id") @db.Uuid
+  authorityCode            String?  @map("authority_code")
+  authorityLevel           String?  @map("authority_level")
+  procurementScope         String?  @map("procurement_scope")
+  regionName               String?  @map("region_name")
+  budgetBand               String?  @map("budget_band")
+  noticePublishingEndpoint String?  @map("notice_publishing_endpoint")
+  policyUrl                String?  @map("policy_url")
+  isUtilitiesEntity        Boolean  @default(false) @map("is_utilities_entity")
+  isFrameworkBuyer         Boolean  @default(false) @map("is_framework_buyer")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+  entity                   Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@map("entity_authority_profiles")
+}
+
+model OrganizationUnit {
+  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId              String             @map("entity_id") @db.Uuid
+  parentId              String?            @map("parent_id") @db.Uuid
+  unitType              String             @map("unit_type")
+  name                  String
+  code                  String?
+  slug                  String
+  description           String?
+  countryCode           String?            @map("country_code") @db.Char(2)
+  region                String?
+  city                  String?
+  costCenter            String?            @map("cost_center")
+  budgetOwner           String?            @map("budget_owner")
+  isProcurementEligible Boolean            @default(false) @map("is_procurement_eligible")
+  isActive              Boolean            @default(true) @map("is_active")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  entity                Entity             @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  parent                OrganizationUnit?  @relation("OrganizationUnitHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children              OrganizationUnit[] @relation("OrganizationUnitHierarchy")
+  memberships           EntityMembership[]
+
+  @@unique([entityId, slug])
+  @@index([entityId, unitType, isActive])
+  @@map("organization_units")
+}
+
+model EntityMembership {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId       String            @map("entity_id") @db.Uuid
+  userId         String            @map("user_id") @db.Uuid
+  unitId         String?           @map("unit_id") @db.Uuid
+  membershipRole String            @default("member") @map("membership_role")
+  permissions    String[]          @default([])
+  status         String            @default("active")
+  joinedAt       DateTime?         @map("joined_at")
+  lastElevatedAt DateTime?         @map("last_elevated_at")
+  removedAt      DateTime?         @map("removed_at")
+  removedReason  String?           @map("removed_reason")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  entity         Entity            @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unit           OrganizationUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  @@unique([entityId, userId])
+  @@index([entityId, membershipRole, status])
+  @@map("entity_memberships")
+}
+
+model EntityCertification {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId          String    @map("entity_id") @db.Uuid
+  certificationType String    @map("certification_type")
+  issuingBody       String?   @map("issuing_body")
+  referenceNumber   String?   @map("reference_number")
+  status            String    @default("pending")
+  issuedAt          DateTime? @map("issued_at")
+  expiresAt         DateTime? @map("expires_at")
+  documentUrl       String?   @map("document_url")
+  scope             Json?
+  verifiedAt        DateTime? @map("verified_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  entity            Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId, certificationType, status])
+  @@map("entity_certifications")
+}
+
+model TrustScoreEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId    String   @map("entity_id") @db.Uuid
+  source      String
+  reason      String
+  delta       Int
+  scoreBefore Int      @map("score_before")
+  scoreAfter  Int      @map("score_after")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  entity      Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId, createdAt])
+  @@map("trust_score_events")
+}
+
+
+model CatalogCategory {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId         String?           @map("parent_id") @db.Uuid
+  slug             String            @unique
+  name             String
+  categoryType     String            @default("product") @map("category_type")
+  description      String?
+  treePath         String?           @map("tree_path")
+  seoTitle         String?           @map("seo_title")
+  seoDescription   String?           @map("seo_description")
+  attributeSchema  Json?             @map("attribute_schema")
+  procurementHints Json?             @map("procurement_hints")
+  sortOrder        Int               @default(0) @map("sort_order")
+  isActive         Boolean           @default(true) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  parent           CatalogCategory?  @relation("CatalogCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children         CatalogCategory[] @relation("CatalogCategoryTree")
+  listings         Listing[]
+
+  @@index([parentId, sortOrder])
+  @@index([categoryType, isActive])
+  @@map("catalog_categories")
+}
+
+model EntityStorefront {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId              String   @unique @map("entity_id") @db.Uuid
+  headline              String?
+  heroSummary           String?  @map("hero_summary")
+  valueProposition      String?  @map("value_proposition")
+  seoTitle              String?  @map("seo_title")
+  seoDescription        String?  @map("seo_description")
+  bannerImageUrl        String?  @map("banner_image_url")
+  accentColor           String?  @map("accent_color")
+  featuredCategories    String[] @default([]) @map("featured_categories")
+  marketplaceRegions    String[] @default([]) @map("marketplace_regions")
+  quoteResponseSlaHours Int?     @map("quote_response_sla_hours")
+  samplePolicy          String?  @map("sample_policy")
+  storefrontStatus      String   @default("draft") @map("storefront_status")
+  highlightMetrics      Json?    @map("highlight_metrics")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  entity                Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@map("entity_storefronts")
+}
+
+model Listing {
+  id                     String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId               String                          @map("entity_id") @db.Uuid
+  title                  String
+  slug                   String                          @unique
+  summary                String
+  description            String
+  category               String
+  categoryPath           String[]                        @default([]) @map("category_path")
+  listingType            String                          @default("product") @map("listing_type")
+  status                 String                          @default("draft")
+  publicationStatus      String                          @default("draft") @map("publication_status")
+  storefrontVisibility   String                          @default("members_only") @map("storefront_visibility")
+  currency               String                          @default("EUR")
+  priceFromCents         Int?                            @map("price_from_cents")
+  minOrderQty            Int?                            @map("min_order_qty")
+  moqUnit                String?                         @map("moq_unit")
+  packagingUnit          String?                         @map("packaging_unit")
+  leadTimeDaysMin        Int?                            @map("lead_time_days_min")
+  leadTimeDaysMax        Int?                            @map("lead_time_days_max")
+  stockStatus            String                          @default("made_to_order") @map("stock_status")
+  paymentTerms           String?                         @map("payment_terms")
+  incoterms              String[]                        @default([])
+  seoTitle               String?                         @map("seo_title")
+  seoSummary             String?                         @map("seo_summary")
+  searchKeywords         String[]                        @default([]) @map("search_keywords")
+  capabilityTags         String[]                        @default([]) @map("capability_tags")
+  complianceTags         String[]                        @default([]) @map("compliance_tags")
+  originCountryCode      String?                         @map("origin_country_code") @db.Char(2)
+  attributeSchemaVersion String?                         @default("catalog-v1") @map("attribute_schema_version")
+  qualityScore           Int                             @default(0) @map("quality_score")
+  publishedAt            DateTime?                       @map("published_at")
+  archivedAt             DateTime?                       @map("archived_at")
+  dispatchLocationId     String?                         @map("dispatch_location_id") @db.Uuid
+  showLocationOnListing  Boolean                         @default(false) @map("show_location_on_listing")
+  metadata               Json?
+  createdAt              DateTime                        @default(now()) @map("created_at")
+  updatedAt              DateTime                        @updatedAt @map("updated_at")
+  entity                 Entity                          @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  dispatchLocation       EntityLocation?                 @relation("ListingDispatchLocation", fields: [dispatchLocationId], references: [id])
+  orders                 Order[]
+  media                  ListingMedia[]
+  variants               ListingVariant[]
+  priceTiers             ListingPriceTier[]
+  attributes             ListingAttribute[]
+  documents              ListingDocument[]
+  sectionItems           SupplierCatalogSectionItem[]
+  publicationEvents      ListingPublicationEvent[]
+  catalogCollectionItems SupplierCatalogCollectionItem[]
+
+  @@index([entityId, status, category])
+  @@index([publicationStatus, storefrontVisibility, qualityScore])
+  @@map("listings")
+}
+
+model ListingMedia {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId        String   @map("listing_id") @db.Uuid
+  mediaType        String   @map("media_type")
+  storageUrl       String   @map("storage_url")
+  altText          String?  @map("alt_text")
+  sortOrder        Int      @default(0) @map("sort_order")
+  isPrimary        Boolean  @default(false) @map("is_primary")
+  moderationStatus String   @default("approved") @map("moderation_status")
+  sourceType       String   @default("upload") @map("source_type")
+  metadata         Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  listing          Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, sortOrder])
+  @@map("listing_media")
+}
+
+model ListingVariant {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId       String             @map("listing_id") @db.Uuid
+  code            String
+  sku             String?
+  title           String
+  summary         String?
+  status          String             @default("active")
+  currency        String             @default("EUR")
+  priceFromCents  Int?               @map("price_from_cents")
+  unitLabel       String?            @map("unit_label")
+  minOrderQty     Int?               @map("min_order_qty")
+  packSize        Int?               @map("pack_size")
+  leadTimeDaysMin Int?               @map("lead_time_days_min")
+  leadTimeDaysMax Int?               @map("lead_time_days_max")
+  stockStatus     String?            @map("stock_status")
+  attributes      Json?
+  metadata        Json?
+  isPrimary       Boolean            @default(false) @map("is_primary")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  listing         Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  priceTiers      ListingPriceTier[]
+  attributeRows   ListingAttribute[] @relation("VariantAttributes")
+
+  @@unique([listingId, code])
+  @@index([listingId, status])
+  @@map("listing_variants")
+}
+
+model ListingPriceTier {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId       String          @map("listing_id") @db.Uuid
+  variantId       String?         @map("variant_id") @db.Uuid
+  minQty          Int             @map("min_qty")
+  maxQty          Int?            @map("max_qty")
+  unitPriceCents  Int             @map("unit_price_cents")
+  currency        String          @default("EUR")
+  leadTimeDaysMin Int?            @map("lead_time_days_min")
+  leadTimeDaysMax Int?            @map("lead_time_days_max")
+  incoterm        String?
+  notes           String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  listing         Listing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  variant         ListingVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, minQty])
+  @@index([variantId, minQty])
+  @@map("listing_price_tiers")
+}
+
+model ListingAttribute {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId      String          @map("listing_id") @db.Uuid
+  variantId      String?         @map("variant_id") @db.Uuid
+  attributeKey   String          @map("attribute_key")
+  attributeLabel String          @map("attribute_label")
+  valueText      String?         @map("value_text")
+  valueNumeric   Decimal?        @map("value_numeric") @db.Decimal(14, 4)
+  unit           String?
+  isFilterable   Boolean         @default(true) @map("is_filterable")
+  sortOrder      Int             @default(0) @map("sort_order")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  listing        Listing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  variant        ListingVariant? @relation("VariantAttributes", fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, attributeKey, sortOrder])
+  @@index([variantId, attributeKey])
+  @@map("listing_attributes")
+}
+
+model ListingDocument {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId    String   @map("listing_id") @db.Uuid
+  documentType String   @map("document_type")
+  fileName     String   @map("file_name")
+  storageUrl   String   @map("storage_url")
+  visibility   String   @default("members_only")
+  status       String   @default("approved")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  listing      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, visibility, status])
+  @@map("listing_documents")
+}
+
+model SupplierCatalogSection {
+  id          String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId    String                      @map("entity_id") @db.Uuid
+  title       String
+  slug        String
+  description String?
+  sortOrder   Int                         @default(0) @map("sort_order")
+  visibility  String                      @default("members_only")
+  createdAt   DateTime                    @default(now()) @map("created_at")
+  updatedAt   DateTime                    @updatedAt @map("updated_at")
+  entity      Entity                      @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  items       SupplierCatalogSectionItem[]
+
+  @@unique([entityId, slug])
+  @@index([entityId, visibility, sortOrder])
+  @@map("supplier_catalog_sections")
+}
+
+model SupplierCatalogSectionItem {
+  id        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sectionId String                 @map("section_id") @db.Uuid
+  listingId String                 @map("listing_id") @db.Uuid
+  sortOrder Int                    @default(0) @map("sort_order")
+  featured  Boolean                @default(false)
+  createdAt DateTime               @default(now()) @map("created_at")
+  section   SupplierCatalogSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  listing   Listing                @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, listingId])
+  @@index([sectionId, sortOrder])
+  @@map("supplier_catalog_section_items")
+}
+
+model ListingPublicationEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId   String   @map("listing_id") @db.Uuid
+  eventType   String   @map("event_type")
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  outcome     String
+  notes       String?
+  snapshot    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, createdAt])
+  @@map("listing_publication_events")
+}
+
+
+
+model SupplierCatalogCollection {
+  id              String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId        String                         @map("entity_id") @db.Uuid
+  title           String
+  slug            String
+  description     String?
+  storefrontOrder Int                            @default(0) @map("storefront_order")
+  isPublished     Boolean                        @default(true) @map("is_published")
+  createdAt       DateTime                       @default(now()) @map("created_at")
+  updatedAt       DateTime                       @updatedAt @map("updated_at")
+  entity          Entity                         @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  items           SupplierCatalogCollectionItem[]
+
+  @@unique([entityId, slug])
+  @@index([entityId, storefrontOrder])
+  @@map("supplier_catalog_collections")
+}
+
+model SupplierCatalogCollectionItem {
+  id           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String                    @map("collection_id") @db.Uuid
+  listingId    String                    @map("listing_id") @db.Uuid
+  sortOrder    Int                       @default(0) @map("sort_order")
+  createdAt    DateTime                  @default(now()) @map("created_at")
+  collection   SupplierCatalogCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  listing      Listing                   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, listingId])
+  @@index([collectionId, sortOrder])
+  @@map("supplier_catalog_collection_items")
+}
+
+model Order {
+
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId          String          @map("listing_id") @db.Uuid
+  buyerEntityId      String          @map("buyer_entity_id") @db.Uuid
+  sellerEntityId     String          @map("seller_entity_id") @db.Uuid
+  dispatchLocationId String?         @map("dispatch_location_id") @db.Uuid
+  deliveryAddress    Json?           @map("delivery_address")
+  status             String          @default("draft")
+  currency           String          @default("EUR")
+  subtotalCents      Int             @default(0) @map("subtotal_cents")
+  incoterm           String?         @default("DAP")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+  listing            Listing         @relation(fields: [listingId], references: [id])
+  buyerEntity        Entity          @relation("BuyerOrders", fields: [buyerEntityId], references: [id])
+  sellerEntity       Entity          @relation("SellerOrders", fields: [sellerEntityId], references: [id])
+  dispatchLocation   EntityLocation? @relation("OrderDispatchLocation", fields: [dispatchLocationId], references: [id])
+
+  @@index([buyerEntityId, sellerEntityId, status])
+  @@map("orders")
+}
+
+model RFQ {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerEntityId  String   @map("buyer_entity_id") @db.Uuid
+  title          String
+  description    String
+  category       String
+  geoRestriction Json?    @map("geo_restriction")
+  deadlineAt     DateTime @map("deadline_at")
+  status         String   @default("open")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  buyerEntity    Entity   @relation(fields: [buyerEntityId], references: [id], onDelete: Cascade)
+
+  @@map("rfqs")
+}
+
+model Tender {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorityId    String         @map("authority_id") @db.Uuid
+  title          String
+  description    String
+  regime         String
+  thresholdBand  String         @map("threshold_band")
+  geoEligibility Json?          @map("geo_eligibility")
+  deadlineAt     DateTime       @map("deadline_at")
+  status         String         @default("draft")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  authority      Entity         @relation(fields: [authorityId], references: [id], onDelete: Cascade)
+  conversations  Conversation[]
+
+  @@map("tenders")
+}
+
+model Conversation {
+  id              String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type            String
+  title           String
+  buyerEntityId   String?                   @map("buyer_entity_id") @db.Uuid
+  sellerEntityId  String?                   @map("seller_entity_id") @db.Uuid
+  tenderId        String?                   @map("tender_id") @db.Uuid
+  modelProvider   String?                   @map("model_provider")
+  modelName       String?                   @map("model_name")
+  metadata        Json?
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
+  participants    ConversationParticipant[]
+  messages        Message[]
+  aiUsages        AIUsage[]
+  buyerEntity     Entity?                   @relation("ConversationBuyer", fields: [buyerEntityId], references: [id])
+  sellerEntity    Entity?                   @relation("ConversationSeller", fields: [sellerEntityId], references: [id])
+  tender          Tender?                   @relation(fields: [tenderId], references: [id])
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  entityId       String?      @map("entity_id") @db.Uuid
+  role           String       @default("member")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  senderType     String       @map("sender_type")
+  userId         String?      @map("user_id") @db.Uuid
+  content        String
+  metadata       Json?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model AIUsage {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String      @map("conversation_id") @db.Uuid
+  provider      String
+  model         String
+  inputTokens   Int?         @map("input_tokens")
+  outputTokens  Int?         @map("output_tokens")
+  costUsd       Decimal?     @map("cost_usd") @db.Decimal(10, 4)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_usage")
+}
+
+
+model ComplianceCase {
+  id                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId          String                      @map("entity_id") @db.Uuid
+  caseType          String                      @map("case_type")
+  status            String                      @default("open")
+  riskBand          String                      @default("medium") @map("risk_band")
+  priority          String                      @default("normal")
+  initiatedBy       String?                     @map("initiated_by") @db.Uuid
+  resolvedBy        String?                     @map("resolved_by") @db.Uuid
+  externalReference String?                     @map("external_reference")
+  outcomeSummary    String?                     @map("outcome_summary")
+  dueAt             DateTime?                   @map("due_at")
+  resolvedAt        DateTime?                   @map("resolved_at")
+  createdAt         DateTime                    @default(now()) @map("created_at")
+  updatedAt         DateTime                    @updatedAt @map("updated_at")
+  entity            Entity                      @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  resolver          User?                       @relation("ComplianceCaseResolvedBy", fields: [resolvedBy], references: [id])
+  checks            ComplianceCheck[]
+  documents         ComplianceDocument[]
+  screeningMatches  ComplianceScreeningMatch[]
+  events            ComplianceCaseEvent[]
+
+  @@index([entityId, status, caseType])
+  @@index([entityId, riskBand, updatedAt])
+  @@map("compliance_cases")
+}
+
+model ComplianceCheck {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId          String           @map("entity_id") @db.Uuid
+  caseId            String?          @map("case_id") @db.Uuid
+  beneficialOwnerId String?          @map("beneficial_owner_id") @db.Uuid
+  provider          String
+  checkType         String           @map("check_type")
+  status            String           @default("queued")
+  requestSnapshot   Json?            @map("request_snapshot")
+  responseSnapshot  Json?            @map("response_snapshot")
+  riskScore         Int?             @map("risk_score")
+  startedAt         DateTime?        @map("started_at")
+  completedAt       DateTime?        @map("completed_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  entity            Entity           @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  complianceCase    ComplianceCase?  @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  beneficialOwner   BeneficialOwner? @relation(fields: [beneficialOwnerId], references: [id], onDelete: SetNull)
+
+  @@index([entityId, provider, status])
+  @@index([caseId, checkType])
+  @@index([beneficialOwnerId, status])
+  @@map("compliance_checks")
+}
+
+model ComplianceDocument {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId       String          @map("entity_id") @db.Uuid
+  caseId         String?         @map("case_id") @db.Uuid
+  documentType   String          @map("document_type")
+  fileName       String          @map("file_name")
+  storageUrl     String          @map("storage_url")
+  source         String          @default("user_upload")
+  status         String          @default("submitted")
+  reviewNotes    String?         @map("review_notes")
+  issuedAt       DateTime?       @map("issued_at")
+  expiresAt      DateTime?       @map("expires_at")
+  reviewedAt     DateTime?       @map("reviewed_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  entity         Entity          @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  complianceCase ComplianceCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  @@index([entityId, status, documentType])
+  @@index([caseId, status])
+  @@map("compliance_documents")
+}
+
+model BeneficialOwner {
+  id                         String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId                   String                      @map("entity_id") @db.Uuid
+  firstName                  String                      @map("first_name")
+  lastName                   String                      @map("last_name")
+  fullNameNormalized         String                      @map("full_name_normalized")
+  birthDate                  DateTime?                   @map("birth_date") @db.Date
+  nationalityCountryCode     String?                     @map("nationality_country_code") @db.Char(2)
+  residenceCountryCode       String?                     @map("residence_country_code") @db.Char(2)
+  ownershipPercent           Decimal?                    @map("ownership_percent") @db.Decimal(5, 2)
+  controlType                String?                     @map("control_type")
+  roleTitle                  String?                     @map("role_title")
+  identityVerificationStatus String                      @default("not_started") @map("identity_verification_status")
+  screeningStatus            String                      @default("not_started") @map("screening_status")
+  pepDeclared                Boolean                     @default(false) @map("pep_declared")
+  sanctionsDeclared          Boolean                     @default(false) @map("sanctions_declared")
+  onfidoApplicantId          String?                     @map("onfido_applicant_id")
+  isActive                   Boolean                     @default(true) @map("is_active")
+  createdAt                  DateTime                    @default(now()) @map("created_at")
+  updatedAt                  DateTime                    @updatedAt @map("updated_at")
+  entity                     Entity                      @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  checks                     ComplianceCheck[]
+  screeningMatches           ComplianceScreeningMatch[]
+
+  @@index([entityId, isActive, screeningStatus])
+  @@index([entityId, ownershipPercent])
+  @@map("beneficial_owners")
+}
+
+model ComplianceScreeningMatch {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityId          String           @map("entity_id") @db.Uuid
+  caseId            String?          @map("case_id") @db.Uuid
+  beneficialOwnerId String?          @map("beneficial_owner_id") @db.Uuid
+  subjectType       String           @map("subject_type")
+  provider          String
+  providerReference String?          @map("provider_reference")
+  matchedName       String           @map("matched_name")
+  sourceList        String?          @map("source_list")
+  matchScore        Decimal?         @map("match_score") @db.Decimal(5, 2)
+  resolutionStatus  String           @default("potential_match") @map("resolution_status")
+  resolutionNotes   String?          @map("resolution_notes")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  entity            Entity           @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  complianceCase    ComplianceCase?  @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  beneficialOwner   BeneficialOwner? @relation(fields: [beneficialOwnerId], references: [id], onDelete: SetNull)
+
+  @@index([entityId, resolutionStatus, createdAt])
+  @@index([caseId, resolutionStatus])
+  @@map("compliance_screening_matches")
+}
+
+model ComplianceCaseEvent {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId      String          @map("case_id") @db.Uuid
+  actorUserId String?         @map("actor_user_id") @db.Uuid
+  eventType   String          @map("event_type")
+  fromStatus  String?         @map("from_status")
+  toStatus    String?         @map("to_status")
+  note        String?
+  metadata    Json?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  caseRecord  ComplianceCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actor       User?           @relation("ComplianceCaseEventActor", fields: [actorUserId], references: [id])
+
+  @@index([caseId, createdAt])
+  @@map("compliance_case_events")
+}
+
+model OutboxEvent {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventName   String    @map("event_name")
+  payload     Json
+  metadata    Json?
+  status      String    @default("pending")
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error")
+  availableAt DateTime  @default(now()) @map("available_at")
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([status, eventName, availableAt])
+  @@map("outbox_events")
+}

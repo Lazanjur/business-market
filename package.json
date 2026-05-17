@@ -1,0 +1,13 @@
+{
+  "name": "ib-marketplace-v4",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:api": "npm --workspace @ib-marketplace/api run start:dev",
+    "dev:web": "npm --workspace @ib-marketplace/web run dev",
+    "dev:worker": "npm --workspace @ib-marketplace/worker run dev",
+    "db:generate": "npm --workspace @ib-marketplace/db run prisma:generate",
+    "db:migrate": "npm --workspace @ib-marketplace/db run prisma:migrate",
+    "db:seed": "npm --workspace @ib-marketplace/db run prisma:seed"
+  }
+}
